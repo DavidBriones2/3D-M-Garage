@@ -1,0 +1,323 @@
+<html>
+	<head>
+		<title>3D M-GARAGE</title>
+		<link rel="stylesheet" href="/dependencias/estilos.css">
+		
+		<script type="text/javascript" src="/dependencias/three.min.js"></script>
+		<!--<script type="module" src="/scripts.js"></script>-->
+		<script type="text/javascript" src="dependencias/OrbitControls.js"></script>
+		<script src="/dependencias/GLTFLoader.js"></script>
+		<!-- <script src="/dependencias/EffectComposer.js"></script> -->
+		<script src="/dependencias/postprocessing.min.js"></script>	
+	</head>
+	<body>
+		<audio id="audioR34" controls style="display:none">
+			<source src="/assets/r34/r34-sound.mp3" type="audio/mp3">
+		</audio>
+		<audio id="audioS15" controls style="display:none">
+			<source src="/assets/s15/s15-sound.mp3" type="audio/mp3">
+		</audio>
+
+		<img src="/assets/Menu/arrow_left.png" id="flechaIzq" hidden>
+		<img src="/assets/Menu/arrow_right.png" id="flechaDer" hidden>
+		<img src="/assets/Menu/boton-capo.png" id="botonCapo" hidden>
+		<img src="/assets/Menu/boton-puertas.png" id="botonPuertas" hidden>
+		<img src="/assets/Menu/boton-sonido.png" id="botonSonido" hidden>
+
+		<script>
+
+
+		document.addEventListener("DOMContentLoaded",function init() {
+	
+			var camera,cameraHUD, scene, renderer, composer, effectPass; //Básicos Three.js
+			var controls; var arrayCoches = []; var contador; //Controles de cámara y lista de coches
+			var r34; var r34object; var r34capoAbierto; var r34puertasAbiertas; //R34
+			var s15; var s15object; var s15capoAbierto; var s15puertasAbiertas; //S15
+			var garaje; //Entorno garaje
+			var hudCanvas, hud2D, flechaIzq, flechaDer, botonCapo, botonPuertas, botonSonido, hudTextura, hudMaterial, hudGeometria, hudPlano; //Interfaz del usuario
+			var width, height; //Ancho y alto
+
+			//Datos recursivos (alto y ancho pantalla)
+			width = window.innerWidth;
+			height = window.innerHeight;
+
+			//Camara perspectiva. (angular, tamanio, ajustes, ajustes)
+			camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 85);
+			camera.position.z = 2;
+			camera.position.x = 2;
+			camera.position.y = 2;
+
+			//Camara del HUD
+			cameraHUD = new THREE.OrthographicCamera(-width/2, width/2, height/2, -height/2, 0, 30 );
+
+			//Escena 3D.
+			scene = new THREE.Scene();
+			scene.background = new THREE.Color(0xa0a0a0);
+
+			//3D render
+			renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.setSize( width, height);
+			renderer.autoClear = false;  //Para que se pueda sobreponer el HUD
+			document.body.appendChild( renderer.domElement );
+
+
+			//Control de la camara
+			controls = new THREE.OrbitControls(camera, renderer.domElement);
+			controls.enableDamping = true; controls.campingFactor = 0.1; controls.enableZoom = true;
+			controls.target.set(0,0,0);
+			camera.position.set = (0,0,10);
+			controls.maxDistance = 4.2;
+			controls.maxPolarAngle = 1.75;
+			controls.minPolarAngle = 1.08;
+			controls.update();
+
+			//Luz solar 
+			const hemisphereLight = new THREE.HemisphereLight(0x194D33,100)
+			hemisphereLight.position.set(200, 200, 100)
+			scene.add(hemisphereLight)
+
+			//Luces esfericas
+			light = new THREE.PointLight(0xc4c4c4,0.7);
+			light.position.set(0,2,4);
+			scene.add(light);
+			ledMedio2 = new THREE.PointLight(0xc4c4c4,0.7);
+			ledMedio2.position.set(0,2,-4);
+			scene.add(ledMedio2);
+
+			light2 = new THREE.PointLight(0xc4c4c4,0.7);
+			light2.position.set(5,2,2);
+			scene.add(light2);
+
+			light3 = new THREE.PointLight(0xc4c4c4,0.7);
+			light3.position.set(-5,2,2);
+			scene.add(light3);
+
+			light4 = new THREE.PointLight(0xc4c4c4,0.7);
+			light4.position.set(-5,2,-2);
+			scene.add(light4);
+
+			light5 = new THREE.PointLight(0xc4c4c4,0.2);
+			light5.position.set(0,0.1,0);
+			scene.add(light5);
+						
+			//U.I.
+			hudCanvas = document.createElement('canvas');
+			hudCanvas.width = width;
+			hudCanvas.height = height;
+			hud2D = hudCanvas.getContext('2d');
+			
+			flechaIzq = document.getElementById('flechaIzq');
+			flechaDer = document.getElementById('flechaDer');
+			botonCapo = document.getElementById('botonCapo');
+			botonPuertas = document.getElementById('botonPuertas');
+			botonSonido = document.getElementById('botonSonido');
+			hud2D.drawImage(flechaIzq, 10, 250, 50, 50); //Insertamos imagenes en el canvas
+			hud2D.drawImage(flechaDer, 1460, 250, 50, 50);
+			hud2D.drawImage(botonCapo, 10, 600, 100, 100);
+			hud2D.drawImage(botonPuertas, 110,600, 100, 100);
+			hud2D.drawImage(botonSonido, 210, 600, 100, 100);
+
+			sceneHUD = new THREE.Scene(); //Escena del HUD en 2D
+			hudTextura = new THREE.Texture(hudCanvas); 
+			hudTextura.needsUpdate = true; //Para renderizar la escena
+			hudMaterial = new THREE.MeshBasicMaterial({map : hudTextura});
+			hudMaterial.transparent = true; //Material transparente para hacer de U.I
+			hudGeometria = new THREE.PlaneGeometry(width, height); //La geometria del plano, (lo q ocupa en pantalla)
+			hudPlano = new THREE.Mesh(hudGeometria, hudMaterial); //el mesh, que es un plano 2D.
+			sceneHUD.add(hudPlano);
+
+			// ----------------------------                         Coche - Nissan r34                         ------------------------------
+			window.addEventListener('keyup',abrirCapoR34, false);
+			window.addEventListener('keyup',abrirPuertasR34, false);
+			window.addEventListener('keypress',sonidoR34, false);
+			window.addEventListener('keyup',estadoNormalR34, false);
+			r34 = new THREE.GLTFLoader();
+			r34.load('/assets/r34/scene.gltf', function(gltf)
+			{
+				r34object = gltf.scene; //Objeto del coche en estado normal (puertas,capo... CERRADO)
+				scene.add(gltf.scene);
+				r34object.visible = true;
+			});
+			arrayCoches.push(r34object);
+			
+			function abrirCapoR34(event)
+			{
+				if ((event.keyCode == '49') && (r34object.visible == true) && (s15object.visible == false)) 
+				{
+					r34object.visible = false;
+					r34capo = new THREE.GLTFLoader();
+					r34capo.load('/assets/r34/capo/scene.glb', function(gltf)
+					{
+						r34capoAbierto = gltf.scene;
+						scene.add(r34capoAbierto);
+					});
+				}
+			}
+			function abrirPuertasR34(event) 
+			{
+				if ((event.keyCode == '50') && (r34object.visible == true) && (s15object.visible == false)) {
+					r34object.visible = false;
+					r34puertas = new THREE.GLTFLoader();
+					r34puertas.load('/assets/r34/puertas/scene.glb', function(gltf)
+					{
+						r34puertasAbiertas = gltf.scene;
+						scene.add(r34puertasAbiertas);
+					});
+				}
+			}
+			function estadoNormalR34(event) 
+			{
+				if (event.keyCode == '48') 
+				{
+					if (r34capoAbierto.visible == true) 
+					{
+						r34capoAbierto.visible = false;
+					}
+					else if (r34puertasAbiertas.visible == true) 
+					{
+						r34puertasAbiertas.visible = false;
+					}
+					r34object.visible = true;
+				}
+
+			}
+			function sonidoR34(event) 
+			{
+				if ((event.keyCode == '51') && ((r34object.visible == true) || (r34capoAbierto.visible == true) || (r34puertasAbiertas.visible == true))) {
+					document.getElementById('audioR34').play();
+				}else if(event.keyCode == '48')
+				{
+					document.getElementById('audioR34').pause();
+				}
+			}
+
+			// ------------------------------------------------------------------------------------------------------------------------------
+		
+
+			// ----------------------------                         Coche - Nissan Silvia s15                         ------------------------------
+			window.addEventListener('keyup',abrirCapoS15, false);
+			window.addEventListener('keyup',abrirPuertasS15, false);
+			window.addEventListener('keypress',sonidoS15, false);
+			window.addEventListener('keyup',estadoNormalS15, false);
+			s15 = new THREE.GLTFLoader();
+			s15.load('/assets/s15/scene.glb', function(gltf)
+			{
+				s15object = gltf.scene;
+				scene.add(s15object);
+				s15object.visible = false;
+			});	
+			arrayCoches.push(s15object); 
+
+			function abrirCapoS15(event)
+			{
+				if ((event.keyCode == '49') && (s15object.visible == true) && (r34object.visible == false)) 
+				{
+					s15object.visible = false;
+					s15capo = new THREE.GLTFLoader();
+					s15capo.load('/assets/s15/capo/scene.glb', function(gltf)
+					{
+						s15capoAbierto = gltf.scene;
+						scene.add(s15capoAbierto);
+						s15capoAbierto.visible = true;
+					});
+				}
+			}
+			function abrirPuertasS15(event)
+			{
+				if ((event.keyCode == '50') && (s15object.visible == true) && (r34object.visible == false)) {
+					s15object.visible = false;
+					s15puertas = new THREE.GLTFLoader();
+					s15puertas.load('/assets/s15/puertas/scene.glb', function(gltf)
+					{
+						s15puertasAbiertas = gltf.scene;
+						scene.add(s15puertasAbiertas);
+					});
+				}
+			}
+			function sonidoS15(event)
+			{
+				if ((event.keyCode == '51') && ((s15object.visible == true) || (s15capoAbierto.visible == true) || (s15puertasAbiertas.visible == true))) {
+					document.getElementById('audioS15').play();
+				}else if(event.keyCode == '48')
+				{
+					document.getElementById('audioS15').pause();
+				}
+			}
+			function estadoNormalS15(event)
+			{
+				if (event.keyCode == '48') 
+				{
+					if (s15capoAbierto.visible == true) 
+					{
+						s15capoAbierto.visible = false;
+					}
+					else if (s15puertasAbiertas.visible == true) 
+					{
+						s15puertasAbiertas.visible = false;
+					}
+					
+					s15object.visible = true;
+				}	
+			}
+
+			// -------------------------------------------------------------------------------------------------------------------------------------
+
+			window.addEventListener('keyup', cargarCoche); //Elección de coche.
+			function cargarCoche(e) 
+			{
+				if (e.keyCode == '16')
+				{
+					if(r34object.visible == true)
+					{
+						r34object.visible = false;
+						s15object.visible = true;
+						return;
+					}
+					if (s15object.visible == true) 
+					{
+						s15object.visible = false;	
+						r34object.visible = true;
+						return;
+					}
+					
+				}
+			}
+
+			//Garaje
+			garaje = new THREE.GLTFLoader();
+			garaje.load('/assets/Garaje/scene.gltf', function(gltf)
+			{
+				scene.add(gltf.scene);
+			});
+
+	
+	
+			/*Post-procesado
+			composer = new POSTPROCESSING.EffectComposer(renderer);
+			composer.addPass(new POSTPROCESSING.RenderPass(scene, camera));
+			effectPass = new POSTPROCESSING.EffectPass(camera, new POSTPROCESSING.BloomEffect());
+			effectPass.renderToScreen = true;
+			composer.addPass(effectPass); */
+
+			
+			function animate() {
+
+				controls.update();
+				hud2D.needsUpdate = true;
+
+				renderer.render( scene, camera );
+				renderer.render(sceneHUD, cameraHUD);
+
+				requestAnimationFrame(animate);
+				//composer.render();  <- Postprocesado (no funciona)
+
+				console.log(arrayCoches.length);
+			}
+
+			animate();
+		});
+
+		</script>
+	</body>
+</html>
+
