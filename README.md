@@ -42,7 +42,7 @@ Javascript &amp; Three.js - 3D Proyect
                                                                                                                                                       
                                                                                                                                                       
                                                                                                                                                       
-       Proyecto fin de grado de David Briones Sánchez para el CFGS de Desarrollo de Aplicaciones Web en I.E.S Tetuán de las Victorias.
+       Proyecto fin de ciclo de David Briones Sánchez para el CFGS de Desarrollo de Aplicaciones Web en I.E.S Tetuán de las Victorias.
        
        Realizado con Javascript y la libreria Three.js.
        
