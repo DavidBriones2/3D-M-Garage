@@ -48,6 +48,18 @@ Javascript &amp; Three.js - 3D Proyect
        
        Licencia GNU General Public Licence (Copyleft).
           - Se puede descargar y usar, pero no modificar.
+          
+          
+          
+          
+          
+          //--------------------------  CONTROLES DE LA WEB --------------------------//
+          
+          Shift  ->  Cambiar de vehículo
+          0  ->  Reset vehículo
+          1  ->  Abrir capó
+          2  ->  Abrir puertas
+          3  ->  Arrancar vehículo
                                                                                                                                                       
                                                                                                                                                       
                                                                                                                                                       
